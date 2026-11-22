@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'services/auth_service.dart';
+import 'services/file_service.dart';
 import 'viewmodels/auth_viewmodel.dart';
+import 'viewmodels/file_viewmodel.dart';
 import 'views/auth_wrapper.dart';
 import 'core/theme/app_theme.dart';
 
@@ -21,8 +23,15 @@ class VigiaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthViewModel(AuthService()),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AuthViewModel(AuthService()),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => FileViewModel(FileService()),
+        ),
+      ],
       child: MaterialApp(
         title: 'Vigia Arquivos',
         debugShowCheckedModeBanner: false,

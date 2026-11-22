@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/file_viewmodel.dart';
 import '../../widgets/app_logo.dart';
+import '../../widgets/file_card.dart';
 import '../../widgets/user_avatar.dart';
+import '../files/my_files_tab.dart';
 import '../settings/settings_screen.dart';
+import '../upload/upload_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,10 +19,23 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _initializedFiles = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedFiles) {
+      final user = context.read<AuthViewModel>().user;
+      if (user != null) {
+        context.read<FileViewModel>().init(user.uid);
+        _initializedFiles = true;
+      }
+    }
+  }
 
   static const List<Widget> _bodies = [
     _HomeTab(),
-    _PlaceholderTab(icon: Icons.insert_drive_file_outlined, label: 'Meus Arquivos'),
+    MyFilesTab(),
     _PlaceholderTab(icon: Icons.share_outlined, label: 'Compartilhados'),
     _PlaceholderTab(icon: Icons.timeline_outlined, label: 'Atividades'),
   ];
@@ -117,58 +134,69 @@ class _HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthViewModel>(
-      builder: (context, vm, _) {
-        final firstName = vm.user?.firstName ?? 'Usuário';
+    final authVm = context.watch<AuthViewModel>();
+    final fileVm = context.watch<FileViewModel>();
+    final firstName = authVm.user?.firstName ?? 'Usuário';
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          children: [
-            const SizedBox(height: 28),
-            Text(
-              _formattedDate(),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
-                letterSpacing: 1.2,
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        const SizedBox(height: 28),
+        Text(
+          _formattedDate(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Olá, $firstName',
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w400,
+            color: AppTheme.textDark,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Seus documentos estão sob controle.',
+          style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 24),
+        _ActionCard(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const UploadScreen()),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _StatsRow(fileCount: fileVm.fileCount),
+        const SizedBox(height: 28),
+        const _SectionLabel('ATIVIDADE RECENTE'),
+        const SizedBox(height: 12),
+        if (fileVm.files.isEmpty)
+          const _EmptyState(
+            icon: Icons.history_rounded,
+            message: 'Nenhum arquivo enviado ainda.',
+          )
+        else
+          ...fileVm.files.take(3).map(
+                (f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: FileCard(file: f),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Olá, $firstName',
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w400,
-                color: AppTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Seus documentos estão sob controle.',
-              style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            const _ActionCard(),
-            const SizedBox(height: 16),
-            const _StatsRow(),
-            const SizedBox(height: 28),
-            const _SectionLabel('ATIVIDADE RECENTE'),
-            const SizedBox(height: 12),
-            const _EmptyState(
-              icon: Icons.history_rounded,
-              message: 'Nenhuma atividade ainda.',
-            ),
-            const SizedBox(height: 24),
-          ],
-        );
-      },
+        const SizedBox(height: 24),
+      ],
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Placeholder (Meus Arquivos, Compartilhados, Atividades)
+// Tab: Placeholder (Compartilhados, Atividades)
 // ---------------------------------------------------------------------------
 
 class _PlaceholderTab extends StatelessWidget {
@@ -208,82 +236,105 @@ class _PlaceholderTab extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ActionCard extends StatelessWidget {
-  const _ActionCard();
+  final VoidCallback onTap;
+  const _ActionCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primary.withValues(alpha: 0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 22),
             ),
-            child: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Compartilhar arquivo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Enviar novo arquivo',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Defina acesso, permissões e validade',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                  SizedBox(height: 2),
+                  Text(
+                    'Armazene com segurança e controle',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios_rounded,
-              color: Colors.white70, size: 16),
-        ],
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white70, size: 16),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow();
+  final int fileCount;
+  const _StatsRow({required this.fileCount});
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Expanded(child: _StatCard(value: '0', label: 'Arquivos', icon: Icons.insert_drive_file_outlined)),
-        SizedBox(width: 10),
-        Expanded(child: _StatCard(value: '0', label: 'Acessos ativos', icon: Icons.shield_outlined)),
-        SizedBox(width: 10),
-        Expanded(child: _StatCard(value: '0', label: 'Eventos', icon: Icons.timeline_outlined)),
+        Expanded(
+          child: _StatCard(
+            value: '$fileCount',
+            label: 'Arquivos',
+            icon: Icons.insert_drive_file_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: _StatCard(
+            value: '0',
+            label: 'Acessos ativos',
+            icon: Icons.shield_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(
+          child: _StatCard(
+            value: '0',
+            label: 'Eventos',
+            icon: Icons.timeline_outlined,
+          ),
+        ),
       ],
     );
   }
