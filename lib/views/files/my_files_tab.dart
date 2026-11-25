@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../viewmodels/file_viewmodel.dart';
 import '../../widgets/file_card.dart';
+import '../share/share_screen.dart';
 import '../upload/upload_screen.dart';
 
 class MyFilesTab extends StatelessWidget {
@@ -117,6 +118,10 @@ class MyFilesTab extends StatelessWidget {
               final file = vm.files[index];
               return FileCard(
                 file: file,
+                onShare: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ShareScreen(initialFile: file)),
+                ),
                 onDelete: () => _confirmDelete(context, file),
               );
             },

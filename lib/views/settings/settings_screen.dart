@@ -92,10 +92,6 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sub-widgets privados
-// ---------------------------------------------------------------------------
-
 class _UserCard extends StatelessWidget {
   final String name;
   final String email;

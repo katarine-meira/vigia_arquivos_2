@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/share_model.dart';
+import '../../viewmodels/audit_viewmodel.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/file_viewmodel.dart';
+import '../../viewmodels/share_viewmodel.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/file_card.dart';
 import '../../widgets/user_avatar.dart';
+import '../activities/activities_tab.dart';
 import '../files/my_files_tab.dart';
 import '../settings/settings_screen.dart';
-import '../upload/upload_screen.dart';
+import '../share/share_screen.dart';
+import '../share/shares_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,29 +25,40 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _initializedFiles = false;
+  bool _initialized = false;
+  bool _dismissedReceivedBanner = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initializedFiles) {
+    if (!_initialized) {
       final user = context.read<AuthViewModel>().user;
       if (user != null) {
         context.read<FileViewModel>().init(user.uid);
-        _initializedFiles = true;
+        context.read<ShareViewModel>().init(userId: user.uid, userEmail: user.email);
+        context.read<AuditViewModel>().init(userId: user.uid, userEmail: user.email);
+        _initialized = true;
       }
     }
   }
 
-  static const List<Widget> _bodies = [
-    _HomeTab(),
-    MyFilesTab(),
-    _PlaceholderTab(icon: Icons.share_outlined, label: 'Compartilhados'),
-    _PlaceholderTab(icon: Icons.timeline_outlined, label: 'Atividades'),
-  ];
+  void _onNavigateToTab(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bodies = [
+      _HomeTab(
+        isBannerDismissed: _dismissedReceivedBanner,
+        onDismissBanner: () => setState(() => _dismissedReceivedBanner = true),
+        onNavigateToShares: () => _onNavigateToTab(2),
+      ),
+      const MyFilesTab(),
+      const SharesTab(),
+      const ActivitiesTab(),
+    ];
+
     return Consumer<AuthViewModel>(
       builder: (context, vm, _) {
         return Scaffold(
@@ -70,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           body: IndexedStack(
             index: _currentIndex,
-            children: _bodies,
+            children: bodies,
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentIndex,
@@ -117,7 +134,15 @@ class _HomeScreenState extends State<HomeScreen> {
 // ---------------------------------------------------------------------------
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab();
+  final bool isBannerDismissed;
+  final VoidCallback onDismissBanner;
+  final VoidCallback onNavigateToShares;
+
+  const _HomeTab({
+    required this.isBannerDismissed,
+    required this.onDismissBanner,
+    required this.onNavigateToShares,
+  });
 
   static String _formattedDate() {
     final now = DateTime.now();
@@ -136,6 +161,8 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
     final fileVm = context.watch<FileViewModel>();
+    final shareVm = context.watch<ShareViewModel>();
+    final auditVm = context.watch<AuditViewModel>();
     final firstName = authVm.user?.firstName ?? 'Usuário';
 
     return ListView(
@@ -165,15 +192,44 @@ class _HomeTab extends StatelessWidget {
           'Seus documentos estão sob controle.',
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
         ),
+
+        // Aviso em destaque: só aparece se houver documentos NÃO visualizados!
+        if (shareVm.unviewedReceivedCount > 0 && !isBannerDismissed) ...[
+          const SizedBox(height: 20),
+          _ReceivedNotificationBanner(
+            count: shareVm.unviewedReceivedCount,
+            onTap: () {
+              onDismissBanner();
+              for (final s in shareVm.sharedWithMe) {
+                if (!s.isViewed) shareVm.markShareAsViewed(s.id);
+              }
+              onNavigateToShares();
+            },
+          ),
+        ],
+
         const SizedBox(height: 24),
         _ActionCard(
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const UploadScreen()),
+            MaterialPageRoute(builder: (_) => const ShareScreen()),
           ),
         ),
         const SizedBox(height: 16),
-        _StatsRow(fileCount: fileVm.fileCount),
+        _StatsRow(
+          fileCount: fileVm.fileCount,
+          activeShares: shareVm.activeSharesCount,
+          eventCount: auditVm.eventCount,
+        ),
+
+        // Seção: Expira em breve (destaque de atenção)
+        if (shareVm.expiringSoonShares.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          const _SectionLabel('ATENÇÃO'),
+          const SizedBox(height: 12),
+          _ExpiringSoonCard(share: shareVm.expiringSoonShares.first),
+        ],
+
         const SizedBox(height: 28),
         const _SectionLabel('ATIVIDADE RECENTE'),
         const SizedBox(height: 12),
@@ -186,7 +242,13 @@ class _HomeTab extends StatelessWidget {
           ...fileVm.files.take(3).map(
                 (f) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: FileCard(file: f),
+                  child: FileCard(
+                    file: f,
+                    onShare: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ShareScreen(initialFile: f)),
+                    ),
+                  ),
                 ),
               ),
         const SizedBox(height: 24),
@@ -196,7 +258,137 @@ class _HomeTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Tab: Placeholder (Compartilhados, Atividades)
+// Banner de Notificação de Arquivos Recebidos
+// ---------------------------------------------------------------------------
+
+class _ReceivedNotificationBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _ReceivedNotificationBanner({
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFBFDBFE)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppTheme.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    count == 1 ? 'Novo arquivo recebido!' : '$count novos arquivos recebidos!',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textDark),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Toque para visualizar com segurança',
+                    style: TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Card "Expira em breve"
+// ---------------------------------------------------------------------------
+
+class _ExpiringSoonCard extends StatelessWidget {
+  final ShareModel share;
+  const _ExpiringSoonCard({required this.share});
+
+  @override
+  Widget build(BuildContext context) {
+    final expStr = share.expiresAt != null
+        ? DateFormat('dd/MM, HH:mm').format(share.expiresAt!)
+        : 'Em breve';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEE2E2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              share.extension,
+              style: const TextStyle(
+                color: Color(0xFFDC2626),
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  share.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF78350F)),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 13, color: Color(0xFFB45309)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Expira: $expStr',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFFB45309), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFB45309)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab: Placeholder (Atividades)
 // ---------------------------------------------------------------------------
 
 class _PlaceholderTab extends StatelessWidget {
@@ -269,7 +461,7 @@ class _ActionCard extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.cloud_upload_rounded, color: Colors.white, size: 22),
+              child: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
             ),
             const SizedBox(width: 16),
             const Expanded(
@@ -277,7 +469,7 @@ class _ActionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Enviar novo arquivo',
+                    'Compartilhar arquivo',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -286,7 +478,7 @@ class _ActionCard extends StatelessWidget {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Armazene com segurança e controle',
+                    'Defina acesso, permissões e validade',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -306,7 +498,14 @@ class _ActionCard extends StatelessWidget {
 
 class _StatsRow extends StatelessWidget {
   final int fileCount;
-  const _StatsRow({required this.fileCount});
+  final int activeShares;
+  final int eventCount;
+
+  const _StatsRow({
+    required this.fileCount,
+    required this.activeShares,
+    required this.eventCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,17 +519,17 @@ class _StatsRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: _StatCard(
-            value: '0',
+            value: '$activeShares',
             label: 'Acessos ativos',
             icon: Icons.shield_outlined,
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: _StatCard(
-            value: '0',
+            value: '$eventCount',
             label: 'Eventos',
             icon: Icons.timeline_outlined,
           ),

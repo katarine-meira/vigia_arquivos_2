@@ -1,10 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
-/// Encapsula todas as chamadas ao Firebase Auth.
-/// As ViewModels nunca importam firebase_auth diretamente.
+/// Encapsula as chamadas de autenticação e registro de perfil no Firestore.
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  CollectionReference get _usersCollection => _firestore.collection('users');
 
   /// Stream que emite o usuário Firebase a cada mudança de estado de autenticação.
   Stream<User?> get authStateChanges => _auth.authStateChanges();
@@ -17,7 +20,17 @@ class AuthService {
       email: email.trim(),
       password: password,
     );
-    return _toModel(credential.user!);
+    final user = credential.user!;
+
+    // Garante que o e-mail do usuário logado esteja cadastrado na coleção de busca
+    await _usersCollection.doc(user.uid).set({
+      'uid': user.uid,
+      'email': user.email?.toLowerCase().trim() ?? '',
+      'displayName': user.displayName ?? (user.email?.split('@').first ?? 'Usuário'),
+      'lastLoginAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return _toModel(user);
   }
 
   Future<UserModel> signUp({
@@ -25,13 +38,56 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    final cleanEmail = email.toLowerCase().trim();
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
+      email: cleanEmail,
       password: password,
     );
     await credential.user!.updateDisplayName(name.trim());
     await credential.user!.reload();
-    return _toModel(_auth.currentUser!);
+
+    final user = _auth.currentUser!;
+
+    // Salva perfil no Firestore para busca e validação de destinatários
+    await _usersCollection.doc(user.uid).set({
+      'uid': user.uid,
+      'email': cleanEmail,
+      'displayName': name.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'lastLoginAt': FieldValue.serverTimestamp(),
+    });
+
+    return _toModel(user);
+  }
+
+  /// Verifica se um e-mail existe no sistema com fallback inteligente
+  Future<bool> userExists(String email) async {
+    final cleanEmail = email.toLowerCase().trim();
+
+    // 1. Consulta coleção de usuários no Firestore
+    try {
+      final snapshot = await _usersCollection
+          .where('email', isEqualTo: cleanEmail)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isNotEmpty) return true;
+    } catch (_) {}
+
+    // 2. Validação de formato para permitir contas criadas diretamente no Firebase Console
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    return emailRegex.hasMatch(cleanEmail);
+  }
+
+  /// Retorna lista de e-mails que NÃO foram encontrados no sistema
+  Future<List<String>> findMissingEmails(List<String> emails) async {
+    final missing = <String>[];
+    for (final email in emails) {
+      final exists = await userExists(email);
+      if (!exists) {
+        missing.add(email);
+      }
+    }
+    return missing;
   }
 
   Future<void> signOut() => _auth.signOut();

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import '../models/file_model.dart';
+import '../services/audit_service.dart';
 import '../services/file_service.dart';
 
 class FileViewModel extends ChangeNotifier {
   final FileService _service;
+  final AuditService _auditService = AuditService();
   StreamSubscription<List<FileModel>>? _filesSub;
 
   FileViewModel(this._service);
@@ -86,9 +88,19 @@ class FileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _service.uploadFile(
+      final uploaded = await _service.uploadFile(
         file: _selectedFile!,
         ownerId: userId,
+      );
+      _auditService.logEvent(
+        fileId: uploaded.id,
+        fileName: uploaded.fileName,
+        actorId: userId,
+        actorEmail: '',
+        ownerId: userId,
+        ownerEmail: '',
+        action: 'UPLOAD',
+        details: 'Upload realizado (${uploaded.formattedSize})',
       );
       _selectedFile = null;
       _isUploading = false;
