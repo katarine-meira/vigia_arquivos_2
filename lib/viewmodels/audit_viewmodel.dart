@@ -14,10 +14,14 @@ class AuditViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   int get eventCount => _logs.length;
 
+  String? _currentUserId;
+
   void init({String? userId, String? userEmail}) {
+    if (userId != null && _currentUserId == userId && _subscription != null) return;
+    _currentUserId = userId;
+
     _subscription?.cancel();
-    _isLoading = true;
-    notifyListeners();
+    _isLoading = _logs.isEmpty;
 
     _subscription = _auditService.getAuditLogsStream(
       userId: userId,
@@ -33,6 +37,7 @@ class AuditViewModel extends ChangeNotifier {
         notifyListeners();
       },
     );
+    notifyListeners();
   }
 
   Future<void> log({

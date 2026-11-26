@@ -46,16 +46,21 @@ class ShareViewModel extends ChangeNotifier {
         return diff.isNegative == false && diff.inHours <= 48;
       }).toList();
 
+  String? _currentUserId;
+
   /// Inicializa a escuta dos dois fluxos em tempo real
   void init({required String userId, required String userEmail}) {
     if (userId.isEmpty) return;
+    if (_currentUserId == userId && _mySharesSub != null && _sharedWithMeSub != null) {
+      return;
+    }
+    _currentUserId = userId;
 
     _mySharesSub?.cancel();
     _sharedWithMeSub?.cancel();
 
-    _isLoading = true;
+    _isLoading = _myShares.isEmpty && _sharedWithMe.isEmpty;
     _error = null;
-    notifyListeners();
 
     _mySharesSub = _shareService.getMySharesStream(userId).listen(
       (list) {

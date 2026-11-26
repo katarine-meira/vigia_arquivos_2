@@ -25,20 +25,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  bool _initialized = false;
+  String? _initializedUserId;
   bool _dismissedReceivedBanner = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      final user = context.read<AuthViewModel>().user;
-      if (user != null) {
+    final user = context.read<AuthViewModel>().user;
+    if (user != null && _initializedUserId != user.uid) {
+      _initializedUserId = user.uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         context.read<FileViewModel>().init(user.uid);
         context.read<ShareViewModel>().init(userId: user.uid, userEmail: user.email);
         context.read<AuditViewModel>().init(userId: user.uid, userEmail: user.email);
-        _initialized = true;
-      }
+      });
     }
   }
 

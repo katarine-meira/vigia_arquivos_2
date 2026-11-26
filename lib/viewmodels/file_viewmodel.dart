@@ -25,14 +25,17 @@ class FileViewModel extends ChangeNotifier {
   PlatformFile? get selectedFile => _selectedFile;
   int get fileCount => _files.length;
 
+  String? _currentUserId;
+
   /// Inicia a escuta em tempo real dos arquivos do usuário
   void init(String userId) {
     if (userId.isEmpty) return;
+    if (_currentUserId == userId && _filesSub != null) return;
+    _currentUserId = userId;
 
     _filesSub?.cancel();
-    _isLoading = true;
+    _isLoading = _files.isEmpty;
     _error = null;
-    notifyListeners();
 
     _filesSub = _service.getUserFilesStream(userId).listen(
       (list) {
@@ -48,6 +51,7 @@ class FileViewModel extends ChangeNotifier {
         notifyListeners();
       },
     );
+    notifyListeners();
   }
 
   /// Abre o seletor para o usuário escolher um arquivo
@@ -80,7 +84,7 @@ class FileViewModel extends ChangeNotifier {
   }
 
   /// Faz o upload do arquivo selecionado
-  Future<bool> uploadSelectedFile(String userId) async {
+  Future<bool> uploadSelectedFile(String userId, {String userEmail = ''}) async {
     if (_selectedFile == null) return false;
 
     _isUploading = true;
@@ -96,9 +100,9 @@ class FileViewModel extends ChangeNotifier {
         fileId: uploaded.id,
         fileName: uploaded.fileName,
         actorId: userId,
-        actorEmail: '',
+        actorEmail: userEmail,
         ownerId: userId,
-        ownerEmail: '',
+        ownerEmail: userEmail,
         action: 'UPLOAD',
         details: 'Upload realizado (${uploaded.formattedSize})',
       );

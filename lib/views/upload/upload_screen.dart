@@ -88,7 +88,10 @@ class _UploadScreenState extends State<UploadScreen> {
                 onPressed: (fileVm.selectedFile == null || fileVm.isUploading)
                     ? null
                     : () async {
-                        final success = await fileVm.uploadSelectedFile(userId);
+                        final success = await fileVm.uploadSelectedFile(
+                          userId,
+                          userEmail: authVm.user?.email ?? '',
+                        );
                         if (success && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

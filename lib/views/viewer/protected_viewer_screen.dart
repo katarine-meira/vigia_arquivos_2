@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/file_model.dart';
 import '../../models/share_model.dart';
+import '../../services/file_service.dart';
 import '../../viewmodels/audit_viewmodel.dart';
 import '../share/share_screen.dart';
 
@@ -25,13 +26,17 @@ class ProtectedViewerScreen extends StatefulWidget {
 }
 
 class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
+  final FileService _fileService = FileService();
   int _currentPage = 0;
   int _totalPages = 0;
   bool _pdfReady = false;
+  bool _isResolving = true;
+  String? _resolvedPath;
 
   @override
   void initState() {
     super.initState();
+    _resolveDocument();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Registra evento de visualização que aparecerá APENAS para o proprietário do documento
@@ -49,11 +54,25 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
     });
   }
 
+  Future<void> _resolveDocument() async {
+    final path = await _fileService.resolveFilePath(
+      fileId: widget.share.fileId,
+      fileName: widget.share.fileName,
+      localPath: widget.share.localPath,
+    );
+    if (mounted) {
+      setState(() {
+        _resolvedPath = path;
+        _isResolving = false;
+      });
+    }
+  }
+
   bool get _isPdf => widget.share.extension.toUpperCase() == 'PDF';
 
   bool get _isImage {
     final ext = widget.share.extension.toUpperCase();
-    return ['PNG', 'JPG', 'JPEG', 'WEBP', 'GIF'].contains(ext);
+    return ['PNG', 'JPG', 'JPEG', 'WEBP', 'GIF', 'HEIC', 'HEIF'].contains(ext);
   }
 
   bool get _isText {
@@ -63,9 +82,11 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
 
   Future<String> _readTextContent() async {
     try {
-      final file = File(widget.share.localPath);
-      if (await file.exists()) {
-        return await file.readAsString();
+      if (_resolvedPath != null) {
+        final file = File(_resolvedPath!);
+        if (await file.exists()) {
+          return await file.readAsString();
+        }
       }
     } catch (_) {}
     return 'Conteúdo textual não disponível no dispositivo.';
@@ -73,12 +94,11 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
 
   Future<void> _handleDownload(BuildContext context) async {
     try {
-      final sourceFile = File(widget.share.localPath);
-      if (!await sourceFile.exists()) {
+      if (_resolvedPath == null || !await File(_resolvedPath!).exists()) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Arquivo original não encontrado localmente neste dispositivo.'),
+              content: Text('Arquivo ainda não disponível neste dispositivo.'),
               backgroundColor: AppTheme.errorColor,
               behavior: SnackBarBehavior.floating,
             ),
@@ -87,15 +107,19 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
         return;
       }
 
-      // Salva uma cópia na pasta de documentos da aplicação
-      final docsDir = await getApplicationDocumentsDirectory();
-      final exportDir = Directory('${docsDir.path}/downloads');
-      if (!await exportDir.exists()) {
-        await exportDir.create(recursive: true);
-      }
+      final bytes = await File(_resolvedPath!).readAsBytes();
 
-      final targetFile = File('${exportDir.path}/${widget.share.fileName}');
-      await sourceFile.copy(targetFile.path);
+      // Abre o seletor nativo do Android/iOS para salvar o arquivo na pasta Downloads ou escolhida pelo usuário
+      final savedPath = await FilePicker.saveFile(
+        dialogTitle: 'Salvar documento',
+        fileName: widget.share.fileName,
+        bytes: bytes,
+      );
+
+      if (savedPath == null) {
+        // Usuário cancelou o diálogo de salvamento
+        return;
+      }
 
       if (context.mounted) {
         // Notifica o proprietário que uma cópia física foi baixada
@@ -111,15 +135,18 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
             );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cópia salva com sucesso! Abrindo documento...'),
-            backgroundColor: Color(0xFF16A34A),
+          SnackBar(
+            content: const Text('Arquivo salvo nos seus Downloads com sucesso!'),
+            backgroundColor: const Color(0xFF16A34A),
             behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Abrir',
+              textColor: Colors.white,
+              onPressed: () => OpenFilex.open(_resolvedPath!),
+            ),
           ),
         );
       }
-
-      await OpenFilex.open(targetFile.path);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +181,7 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final fileExists = widget.share.localPath.isNotEmpty && File(widget.share.localPath).existsSync();
+    final fileExists = _resolvedPath != null && File(_resolvedPath!).existsSync();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B132B), // Fundo escuro focado para leitura
@@ -203,92 +230,108 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
         children: [
           // Conteúdo do documento visualizado dentro do próprio app
           Center(
-            child: !fileExists
-                ? _buildNotFoundView()
-                : _isPdf
-                    ? PDFView(
-                        filePath: widget.share.localPath,
-                        enableSwipe: true,
-                        swipeHorizontal: false,
-                        autoSpacing: true,
-                        pageFling: true,
-                        backgroundColor: const Color(0xFF0B132B),
-                        onRender: (pages) {
-                          setState(() {
-                            _totalPages = pages ?? 0;
-                            _pdfReady = true;
-                          });
-                        },
-                        onPageChanged: (page, total) {
-                          setState(() {
-                            _currentPage = page ?? 0;
-                          });
-                        },
-                        onError: (error) {
-                          debugPrint('Erro ao renderizar PDF: $error');
-                        },
-                      )
-                    : _isImage
-                        ? InteractiveViewer(
-                            minScale: 0.8,
-                            maxScale: 4.0,
-                            child: Image.file(
-                              File(widget.share.localPath),
-                              fit: BoxFit.contain,
-                            ),
+            child: _isResolving
+                ? const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        'Carregando documento seguro...',
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                      ),
+                    ],
+                  )
+                : !fileExists
+                    ? _buildNotFoundView()
+                    : _isPdf
+                        ? PDFView(
+                            filePath: _resolvedPath!,
+                            enableSwipe: true,
+                            swipeHorizontal: false,
+                            autoSpacing: true,
+                            pageFling: true,
+                            backgroundColor: const Color(0xFF0B132B),
+                            onRender: (pages) {
+                              setState(() {
+                                _totalPages = pages ?? 0;
+                                _pdfReady = true;
+                              });
+                            },
+                            onPageChanged: (page, total) {
+                              setState(() {
+                                _currentPage = page ?? 0;
+                              });
+                            },
+                            onError: (error) {
+                              debugPrint('Erro ao renderizar PDF: $error');
+                            },
                           )
-                        : _isText
-                            ? FutureBuilder<String>(
-                                future: _readTextContent(),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) {
-                                    return const CircularProgressIndicator(color: Colors.white);
-                                  }
-                                  return SingleChildScrollView(
-                                    padding: const EdgeInsets.all(24),
-                                    child: Text(
-                                      snapshot.data!,
-                                      style: const TextStyle(
-                                        color: Color(0xFFE2E8F0),
-                                        fontSize: 14,
-                                        height: 1.6,
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
-                                  );
-                                },
+                        : _isImage
+                            ? InteractiveViewer(
+                                minScale: 0.8,
+                                maxScale: 4.0,
+                                child: Image.file(
+                                  File(_resolvedPath!),
+                                  fit: BoxFit.contain,
+                                ),
                               )
-                            : _buildGenericDocumentView(),
+                            : _isText
+                                ? FutureBuilder<String>(
+                                    future: _readTextContent(),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) {
+                                        return const CircularProgressIndicator(color: Colors.white);
+                                      }
+                                      return SingleChildScrollView(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Text(
+                                          snapshot.data!,
+                                          style: const TextStyle(
+                                            color: Color(0xFFE2E8F0),
+                                            fontSize: 14,
+                                            height: 1.6,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : _buildGenericDocumentView(),
           ),
 
-          // Marca d'água dinâmica e translúcida
+          // Marca d'água dinâmica e translúcida (visível tanto em PDF branco quanto em fundo escuro)
           IgnorePointer(
-            child: Center(
-              child: Transform.rotate(
-                angle: -0.4,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.currentUserEmail,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.13),
-                        letterSpacing: 2,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(
+                3,
+                (_) => Transform.rotate(
+                  angle: -0.35,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.currentUserEmail,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF64748B).withValues(alpha: 0.25),
+                          letterSpacing: 2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'VIGIA ARQUIVOS • RASTREADO',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white.withValues(alpha: 0.10),
-                        letterSpacing: 3,
+                      const SizedBox(height: 3),
+                      Text(
+                        'VIGIA ARQUIVOS • RASTREADO',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF64748B).withValues(alpha: 0.20),
+                          letterSpacing: 3,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
