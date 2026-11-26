@@ -13,9 +13,11 @@ class ShareModel {
   final bool canView;
   final bool canDownload;
   final bool canReshare;
+  final bool viewOnce;
   final DateTime? expiresAt;
   final bool isRevoked;
   final bool isViewed;
+  final bool hasOpened;
   final DateTime createdAt;
 
   const ShareModel({
@@ -31,9 +33,11 @@ class ShareModel {
     required this.canView,
     required this.canDownload,
     required this.canReshare,
+    this.viewOnce = false,
     this.expiresAt,
     required this.isRevoked,
     this.isViewed = false,
+    this.hasOpened = false,
     required this.createdAt,
   });
 
@@ -54,9 +58,11 @@ class ShareModel {
       canView: perms['canView'] as bool? ?? true,
       canDownload: perms['canDownload'] as bool? ?? false,
       canReshare: perms['canReshare'] as bool? ?? false,
+      viewOnce: perms['viewOnce'] as bool? ?? false,
       expiresAt: (data['expiresAt'] as Timestamp?)?.toDate(),
       isRevoked: data['isRevoked'] as bool? ?? false,
       isViewed: data['isViewed'] as bool? ?? false,
+      hasOpened: data['hasOpened'] as bool? ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -74,10 +80,12 @@ class ShareModel {
           'canView': canView,
           'canDownload': canDownload,
           'canReshare': canReshare,
+          'viewOnce': viewOnce,
         },
         'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
         'isRevoked': isRevoked,
         'isViewed': isViewed,
+        'hasOpened': hasOpened,
         'createdAt': Timestamp.fromDate(createdAt),
       };
 
@@ -87,13 +95,17 @@ class ShareModel {
     return DateTime.now().isAfter(expiresAt!);
   }
 
+  /// Retorna se a visualização única já foi consumida
+  bool get isViewOnceConsumed => viewOnce && hasOpened;
+
   /// Retorna se o acesso está atualmente válido e ativo
-  bool get isActive => !isRevoked && !isExpired;
+  bool get isActive => !isRevoked && !isExpired && !isViewOnceConsumed;
 
   /// Retorna a descrição amigável do status do compartilhamento
   String get statusDescription {
     if (isRevoked) return 'Revogado';
     if (isExpired) return 'Expirado';
+    if (isViewOnceConsumed) return 'Visualizado (1x)';
     return 'Ativo';
   }
 

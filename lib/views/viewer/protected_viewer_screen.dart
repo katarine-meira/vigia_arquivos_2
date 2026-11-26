@@ -356,7 +356,9 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      'Visualização interna • ${widget.share.canDownload ? "Download liberado" : "Download bloqueado"} • ${widget.share.canReshare ? "Re-envio liberado" : "Re-envio bloqueado"}',
+                      widget.share.viewOnce
+                          ? 'Visualização única • Acesso encerrado após esta abertura'
+                          : 'Visualização interna • ${widget.share.canDownload ? "Download liberado" : "Download bloqueado"} • ${widget.share.canReshare ? "Re-envio liberado" : "Re-envio bloqueado"}',
                       style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,

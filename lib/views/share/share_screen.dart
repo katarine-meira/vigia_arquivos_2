@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -21,9 +22,10 @@ class _ShareScreenState extends State<ShareScreen> {
   final List<String> _recipients = [];
 
   FileModel? _selectedFile;
-  bool _canView = true;
+  PlatformFile? _pickedLocalFile;
   bool _canDownload = false;
   bool _canReshare = false;
+  bool _viewOnce = false;
   int _selectedExpirationDays = 7; // 0 = sem expiração, 1 = 24h, 7 = 7 dias, 30 = 30 dias
 
   @override
@@ -42,7 +44,7 @@ class _ShareScreenState extends State<ShareScreen> {
   }
 
   DateTime? _calculateExpirationDate() {
-    if (_selectedExpirationDays == 0) return null;
+    if (_viewOnce || _selectedExpirationDays == 0) return null;
     return DateTime.now().add(Duration(days: _selectedExpirationDays));
   }
 
@@ -92,7 +94,7 @@ class _ShareScreenState extends State<ShareScreen> {
       _addEmail();
     }
 
-    if (_selectedFile == null) {
+    if (_selectedFile == null && _pickedLocalFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Selecione um arquivo para compartilhar.'),
@@ -115,18 +117,42 @@ class _ShareScreenState extends State<ShareScreen> {
     }
 
     final authVm = context.read<AuthViewModel>();
+    final fileVm = context.read<FileViewModel>();
     final shareVm = context.read<ShareViewModel>();
     final user = authVm.user;
     if (user == null) return;
+
+    if (_selectedFile == null && _pickedLocalFile != null) {
+      final uploaded = await fileVm.uploadPlatformFile(
+        _pickedLocalFile!,
+        user.uid,
+        userEmail: user.email,
+      );
+      if (uploaded == null) {
+        if (mounted && fileVm.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(fileVm.error!),
+              backgroundColor: AppTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+      _selectedFile = uploaded;
+      _pickedLocalFile = null;
+    }
 
     final success = await shareVm.createShares(
       file: _selectedFile!,
       ownerId: user.uid,
       ownerEmail: user.email,
       recipientEmails: _recipients,
-      canView: _canView,
-      canDownload: _canDownload,
-      canReshare: _canReshare,
+      canView: true,
+      canDownload: _viewOnce ? false : _canDownload,
+      canReshare: _viewOnce ? false : _canReshare,
+      viewOnce: _viewOnce,
       expiresAt: _calculateExpirationDate(),
     );
 
@@ -190,14 +216,45 @@ class _ShareScreenState extends State<ShareScreen> {
               const SizedBox(height: 8),
               if (_selectedFile != null)
                 _FileSummaryCard(
-                  file: _selectedFile!,
+                  fileName: _selectedFile!.fileName,
+                  formattedSize: _selectedFile!.formattedSize,
+                  extension: _selectedFile!.extension,
                   onChange: () => setState(() => _selectedFile = null),
                 )
-              else
-                _FileDropdownPicker(
-                  files: fileVm.files,
-                  onSelected: (file) => setState(() => _selectedFile = file),
+              else if (_pickedLocalFile != null)
+                _FileSummaryCard(
+                  fileName: _pickedLocalFile!.name,
+                  formattedSize: _formatBytes(_pickedLocalFile!.lengthSync() ?? 0),
+                  extension: _extractExtension(_pickedLocalFile!.name),
+                  onChange: () => setState(() => _pickedLocalFile = null),
+                )
+              else ...[
+                if (fileVm.files.isNotEmpty) ...[
+                  _FileDropdownPicker(
+                    files: fileVm.files,
+                    onSelected: (file) => setState(() => _selectedFile = file),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await fileVm.pickLocalFile();
+                    if (picked != null && mounted) {
+                      setState(() => _pickedLocalFile = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.upload_file_outlined, size: 18),
+                  label: const Text('Selecionar novo arquivo do dispositivo'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: const BorderSide(color: AppTheme.primary),
+                    foregroundColor: AppTheme.primary,
+                  ),
                 ),
+              ],
 
               const SizedBox(height: 24),
 
@@ -264,16 +321,22 @@ class _ShareScreenState extends State<ShareScreen> {
                 child: Column(
                   children: [
                     SwitchListTile(
-                      value: _canView,
-                      onChanged: (val) => setState(() => _canView = val),
-                      title: const Text('Visualizar documento', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Permite abrir e ler o conteúdo dentro do app', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      value: _viewOnce,
+                      onChanged: (val) => setState(() {
+                        _viewOnce = val;
+                        if (val) {
+                          _canDownload = false;
+                          _canReshare = false;
+                        }
+                      }),
+                      title: const Text('Visualização única', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Permite abrir o documento apenas uma vez', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       activeColor: AppTheme.primary,
                     ),
                     const Divider(height: 1),
                     SwitchListTile(
                       value: _canDownload,
-                      onChanged: (val) => setState(() => _canDownload = val),
+                      onChanged: _viewOnce ? null : (val) => setState(() => _canDownload = val),
                       title: const Text('Baixar cópia', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                       subtitle: const Text('Permite exportar ou salvar no dispositivo', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       activeColor: AppTheme.primary,
@@ -281,7 +344,7 @@ class _ShareScreenState extends State<ShareScreen> {
                     const Divider(height: 1),
                     SwitchListTile(
                       value: _canReshare,
-                      onChanged: (val) => setState(() => _canReshare = val),
+                      onChanged: _viewOnce ? null : (val) => setState(() => _canReshare = val),
                       title: const Text('Re-compartilhar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                       subtitle: const Text('Permite enviar o documento a terceiros', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                       activeColor: AppTheme.primary,
@@ -290,48 +353,49 @@ class _ShareScreenState extends State<ShareScreen> {
                 ),
               ),
 
-              const SizedBox(height: 28),
-
-              // 4. Prazo de validade / Expiração
-              const FieldLabel('Prazo de validade'),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ExpirationChip(
-                    label: '24 horas',
-                    days: 1,
-                    isSelected: _selectedExpirationDays == 1,
-                    onTap: () => setState(() => _selectedExpirationDays = 1),
-                  ),
-                  _ExpirationChip(
-                    label: '7 dias',
-                    days: 7,
-                    isSelected: _selectedExpirationDays == 7,
-                    onTap: () => setState(() => _selectedExpirationDays = 7),
-                  ),
-                  _ExpirationChip(
-                    label: '30 dias',
-                    days: 30,
-                    isSelected: _selectedExpirationDays == 30,
-                    onTap: () => setState(() => _selectedExpirationDays = 30),
-                  ),
-                  _ExpirationChip(
-                    label: 'Sem prazo',
-                    days: 0,
-                    isSelected: _selectedExpirationDays == 0,
-                    onTap: () => setState(() => _selectedExpirationDays = 0),
-                  ),
-                ],
-              ),
+              // 4. Prazo de validade / Expiração (não exibido em visualização única)
+              if (!_viewOnce) ...[
+                const SizedBox(height: 28),
+                const FieldLabel('Prazo de validade'),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _ExpirationChip(
+                      label: '24 horas',
+                      days: 1,
+                      isSelected: _selectedExpirationDays == 1,
+                      onTap: () => setState(() => _selectedExpirationDays = 1),
+                    ),
+                    _ExpirationChip(
+                      label: '7 dias',
+                      days: 7,
+                      isSelected: _selectedExpirationDays == 7,
+                      onTap: () => setState(() => _selectedExpirationDays = 7),
+                    ),
+                    _ExpirationChip(
+                      label: '30 dias',
+                      days: 30,
+                      isSelected: _selectedExpirationDays == 30,
+                      onTap: () => setState(() => _selectedExpirationDays = 30),
+                    ),
+                    _ExpirationChip(
+                      label: 'Sem prazo',
+                      days: 0,
+                      isSelected: _selectedExpirationDays == 0,
+                      onTap: () => setState(() => _selectedExpirationDays = 0),
+                    ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 36),
 
               // Botão de confirmação
               ElevatedButton(
-                onPressed: shareVm.isSaving ? null : _submit,
-                child: shareVm.isSaving
+                onPressed: (shareVm.isSaving || fileVm.isUploading) ? null : _submit,
+                child: (shareVm.isSaving || fileVm.isUploading)
                     ? const ButtonLoader()
                     : Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -351,13 +415,33 @@ class _ShareScreenState extends State<ShareScreen> {
       ),
     );
   }
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _extractExtension(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot != -1 && dot < name.length - 1) {
+      return name.substring(dot + 1).toUpperCase();
+    }
+    return 'ARQ';
+  }
 }
 
 class _FileSummaryCard extends StatelessWidget {
-  final FileModel file;
+  final String fileName;
+  final String formattedSize;
+  final String extension;
   final VoidCallback onChange;
 
-  const _FileSummaryCard({required this.file, required this.onChange});
+  const _FileSummaryCard({
+    required this.fileName,
+    required this.formattedSize,
+    required this.extension,
+    required this.onChange,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +461,7 @@ class _FileSummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              file.extension,
+              extension,
               style: const TextStyle(
                 color: Color(0xFFDC2626),
                 fontWeight: FontWeight.w700,
@@ -391,12 +475,12 @@ class _FileSummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  file.fileName,
+                  fileName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
-                Text(file.formattedSize, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                Text(formattedSize, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               ],
             ),
           ),

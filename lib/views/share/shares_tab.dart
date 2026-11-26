@@ -10,7 +10,9 @@ import '../viewer/protected_viewer_screen.dart';
 import 'share_screen.dart';
 
 class SharesTab extends StatefulWidget {
-  const SharesTab({super.key});
+  final ValueNotifier<int>? subTabNotifier;
+
+  const SharesTab({super.key, this.subTabNotifier});
 
   @override
   State<SharesTab> createState() => _SharesTabState();
@@ -18,6 +20,25 @@ class SharesTab extends StatefulWidget {
 
 class _SharesTabState extends State<SharesTab> {
   int _tabIndex = 0; // 0 = Recebidos, 1 = Enviados
+
+  @override
+  void initState() {
+    super.initState();
+    widget.subTabNotifier?.addListener(_onSubTabChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.subTabNotifier?.removeListener(_onSubTabChanged);
+    super.dispose();
+  }
+
+  void _onSubTabChanged() {
+    final next = widget.subTabNotifier?.value;
+    if (next != null && next != _tabIndex && mounted) {
+      setState(() => _tabIndex = next);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +195,17 @@ class _ReceivedList extends StatelessWidget {
       return;
     }
 
+    if (share.isViewOnceConsumed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Visualização única: Este documento já foi aberto uma vez e não pode mais ser acessado.'),
+          backgroundColor: Color(0xFFD97706),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (!share.canView) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -185,8 +217,12 @@ class _ReceivedList extends StatelessWidget {
       return;
     }
 
+    final shareVm = context.read<ShareViewModel>();
     // Marca como visualizado para não mostrar mais o aviso de novos arquivos na Home
-    context.read<ShareViewModel>().markShareAsViewed(share.id);
+    shareVm.markShareAsViewed(share.id);
+    if (share.viewOnce) {
+      shareVm.markViewOnceConsumed(share.id);
+    }
 
     // Abre visualizador protegido DENTRO DO APP com transição suave sem artefatos
     Navigator.push(
@@ -463,13 +499,13 @@ class _ShareCard extends StatelessWidget {
 
   Color _statusColor() {
     if (share.isRevoked) return AppTheme.errorColor;
-    if (share.isExpired) return const Color(0xFFD97706);
+    if (share.isExpired || share.isViewOnceConsumed) return const Color(0xFFD97706);
     return const Color(0xFF16A34A);
   }
 
   Color _statusBgColor() {
     if (share.isRevoked) return const Color(0xFFFEE2E2);
-    if (share.isExpired) return const Color(0xFFFEF3C7);
+    if (share.isExpired || share.isViewOnceConsumed) return const Color(0xFFFEF3C7);
     return const Color(0xFFDCFCE7);
   }
 
@@ -531,6 +567,20 @@ class _ShareCard extends StatelessWidget {
                           style: TextStyle(color: _statusColor(), fontSize: 9.5, fontWeight: FontWeight.w700),
                         ),
                       ),
+                      if (share.viewOnce && !share.isViewOnceConsumed) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '1x',
+                            style: TextStyle(color: AppTheme.primary, fontSize: 9.5, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(

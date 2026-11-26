@@ -27,6 +27,13 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   String? _initializedUserId;
   bool _dismissedReceivedBanner = false;
+  final ValueNotifier<int> _sharesSubTabNotifier = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _sharesSubTabNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -43,7 +50,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onNavigateToTab(int index) {
+  void _onNavigateToTab(int index, {int? sharesSubTab}) {
+    if (sharesSubTab != null) {
+      _sharesSubTabNotifier.value = sharesSubTab;
+    }
     setState(() => _currentIndex = index);
   }
 
@@ -53,10 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _HomeTab(
         isBannerDismissed: _dismissedReceivedBanner,
         onDismissBanner: () => setState(() => _dismissedReceivedBanner = true),
-        onNavigateToShares: () => _onNavigateToTab(2),
+        onNavigateToTab: _onNavigateToTab,
       ),
       const MyFilesTab(),
-      const SharesTab(),
+      SharesTab(subTabNotifier: _sharesSubTabNotifier),
       const ActivitiesTab(),
     ];
 
@@ -137,12 +147,12 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeTab extends StatelessWidget {
   final bool isBannerDismissed;
   final VoidCallback onDismissBanner;
-  final VoidCallback onNavigateToShares;
+  final void Function(int index, {int? sharesSubTab}) onNavigateToTab;
 
   const _HomeTab({
     required this.isBannerDismissed,
     required this.onDismissBanner,
-    required this.onNavigateToShares,
+    required this.onNavigateToTab,
   });
 
   static String _formattedDate() {
@@ -204,7 +214,7 @@ class _HomeTab extends StatelessWidget {
               for (final s in shareVm.sharedWithMe) {
                 if (!s.isViewed) shareVm.markShareAsViewed(s.id);
               }
-              onNavigateToShares();
+              onNavigateToTab(2, sharesSubTab: 0);
             },
           ),
         ],
@@ -221,6 +231,9 @@ class _HomeTab extends StatelessWidget {
           fileCount: fileVm.fileCount,
           activeShares: shareVm.activeSharesCount,
           eventCount: auditVm.eventCount,
+          onFilesTap: () => onNavigateToTab(1),
+          onSharesTap: () => onNavigateToTab(2, sharesSubTab: 1),
+          onEventsTap: () => onNavigateToTab(3),
         ),
 
         // Seção: Expira em breve (destaque de atenção)
@@ -228,7 +241,10 @@ class _HomeTab extends StatelessWidget {
           const SizedBox(height: 28),
           const _SectionLabel('ATENÇÃO'),
           const SizedBox(height: 12),
-          _ExpiringSoonCard(share: shareVm.expiringSoonShares.first),
+          _ExpiringSoonCard(
+            share: shareVm.expiringSoonShares.first,
+            onTap: () => onNavigateToTab(2, sharesSubTab: 1),
+          ),
         ],
 
         const SizedBox(height: 28),
@@ -324,7 +340,8 @@ class _ReceivedNotificationBanner extends StatelessWidget {
 
 class _ExpiringSoonCard extends StatelessWidget {
   final ShareModel share;
-  const _ExpiringSoonCard({required this.share});
+  final VoidCallback? onTap;
+  const _ExpiringSoonCard({required this.share, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +349,9 @@ class _ExpiringSoonCard extends StatelessWidget {
         ? DateFormat('dd/MM, HH:mm').format(share.expiresAt!)
         : 'Em breve';
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFFEF3C7),
@@ -384,6 +403,7 @@ class _ExpiringSoonCard extends StatelessWidget {
           const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFB45309)),
         ],
       ),
+    ),
     );
   }
 }
@@ -501,11 +521,17 @@ class _StatsRow extends StatelessWidget {
   final int fileCount;
   final int activeShares;
   final int eventCount;
+  final VoidCallback onFilesTap;
+  final VoidCallback onSharesTap;
+  final VoidCallback onEventsTap;
 
   const _StatsRow({
     required this.fileCount,
     required this.activeShares,
     required this.eventCount,
+    required this.onFilesTap,
+    required this.onSharesTap,
+    required this.onEventsTap,
   });
 
   @override
@@ -517,6 +543,7 @@ class _StatsRow extends StatelessWidget {
             value: '$fileCount',
             label: 'Arquivos',
             icon: Icons.insert_drive_file_outlined,
+            onTap: onFilesTap,
           ),
         ),
         const SizedBox(width: 10),
@@ -525,6 +552,7 @@ class _StatsRow extends StatelessWidget {
             value: '$activeShares',
             label: 'Acessos ativos',
             icon: Icons.shield_outlined,
+            onTap: onSharesTap,
           ),
         ),
         const SizedBox(width: 10),
@@ -533,6 +561,7 @@ class _StatsRow extends StatelessWidget {
             value: '$eventCount',
             label: 'Eventos',
             icon: Icons.timeline_outlined,
+            onTap: onEventsTap,
           ),
         ),
       ],
@@ -544,36 +573,45 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final IconData icon;
-  const _StatCard({required this.value, required this.label, required this.icon});
+  final VoidCallback? onTap;
+  const _StatCard({
+    required this.value,
+    required this.label,
+    required this.icon,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppTheme.primary, size: 20),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textDark,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppTheme.primary, size: 20),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
       ),
     );
   }

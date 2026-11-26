@@ -74,5 +74,53 @@ void main() {
       expect(share.isActive, false);
       expect(share.statusDescription, 'Revogado');
     });
+
+    test('Compartilhamento com visualização única deve ficar inativo após aberto', () {
+      final shareNaoAberto = ShareModel(
+        id: '4',
+        fileId: 'f4',
+        fileName: 'segredo.pdf',
+        fileSize: 500,
+        mimeType: 'pdf',
+        localPath: '/path/segredo.pdf',
+        ownerId: 'user1',
+        ownerEmail: 'dono@exemplo.com',
+        recipientEmail: 'destinatario@exemplo.com',
+        canView: true,
+        canDownload: false,
+        canReshare: false,
+        viewOnce: true,
+        hasOpened: false,
+        isRevoked: false,
+        createdAt: DateTime.now(),
+      );
+
+      expect(shareNaoAberto.isViewOnceConsumed, false);
+      expect(shareNaoAberto.isActive, true);
+      expect(shareNaoAberto.statusDescription, 'Ativo');
+
+      final shareAberto = ShareModel(
+        id: '5',
+        fileId: 'f4',
+        fileName: 'segredo.pdf',
+        fileSize: 500,
+        mimeType: 'pdf',
+        localPath: '/path/segredo.pdf',
+        ownerId: 'user1',
+        ownerEmail: 'dono@exemplo.com',
+        recipientEmail: 'destinatario@exemplo.com',
+        canView: true,
+        canDownload: false,
+        canReshare: false,
+        viewOnce: true,
+        hasOpened: true,
+        isRevoked: false,
+        createdAt: DateTime.now(),
+      );
+
+      expect(shareAberto.isViewOnceConsumed, true);
+      expect(shareAberto.isActive, false);
+      expect(shareAberto.statusDescription, 'Visualizado (1x)');
+    });
   });
 }

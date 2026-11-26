@@ -2,12 +2,10 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import '../models/file_model.dart';
-import '../services/audit_service.dart';
 import '../services/file_service.dart';
 
 class FileViewModel extends ChangeNotifier {
   final FileService _service;
-  final AuditService _auditService = AuditService();
   StreamSubscription<List<FileModel>>? _filesSub;
 
   FileViewModel(this._service);
@@ -86,36 +84,59 @@ class FileViewModel extends ChangeNotifier {
   /// Faz o upload do arquivo selecionado
   Future<bool> uploadSelectedFile(String userId, {String userEmail = ''}) async {
     if (_selectedFile == null) return false;
+    final uploaded = await _performUpload(_selectedFile!, userId, userEmail);
+    if (uploaded != null) {
+      _selectedFile = null;
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
 
+  /// Seleciona um arquivo do dispositivo sem fazer upload imediato
+  Future<PlatformFile?> pickLocalFile() async {
+    try {
+      return await _service.pickFile();
+    } catch (e) {
+      debugPrint('DEBUG: Erro ao selecionar arquivo: $e');
+      _error = 'Erro ao selecionar o arquivo.';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Faz upload de um PlatformFile específico e retorna o FileModel criado
+  Future<FileModel?> uploadPlatformFile(
+    PlatformFile file,
+    String userId, {
+    String userEmail = '',
+  }) async {
+    return _performUpload(file, userId, userEmail);
+  }
+
+  Future<FileModel?> _performUpload(
+    PlatformFile file,
+    String userId,
+    String userEmail,
+  ) async {
     _isUploading = true;
     _error = null;
     notifyListeners();
 
     try {
       final uploaded = await _service.uploadFile(
-        file: _selectedFile!,
+        file: file,
         ownerId: userId,
       );
-      _auditService.logEvent(
-        fileId: uploaded.id,
-        fileName: uploaded.fileName,
-        actorId: userId,
-        actorEmail: userEmail,
-        ownerId: userId,
-        ownerEmail: userEmail,
-        action: 'UPLOAD',
-        details: 'Upload realizado (${uploaded.formattedSize})',
-      );
-      _selectedFile = null;
       _isUploading = false;
       notifyListeners();
-      return true;
+      return uploaded;
     } catch (e) {
       debugPrint('DEBUG: Erro no upload/gravação Firestore: $e');
       _isUploading = false;
       _error = 'Erro ao salvar no banco. Verifique as regras do Firestore no Console.';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

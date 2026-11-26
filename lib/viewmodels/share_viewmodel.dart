@@ -39,6 +39,11 @@ class ShareViewModel extends ChangeNotifier {
     await _shareService.markShareAsViewed(shareId);
   }
 
+  /// Marca que um documento de visualização única foi aberto
+  Future<void> markViewOnceConsumed(String shareId) async {
+    await _shareService.markViewOnceConsumed(shareId);
+  }
+
   /// Compartilhamentos que expiram nas próximas 48 horas
   List<ShareModel> get expiringSoonShares => _myShares.where((s) {
         if (!s.isActive || s.expiresAt == null) return false;
@@ -98,6 +103,7 @@ class ShareViewModel extends ChangeNotifier {
     required bool canView,
     required bool canDownload,
     required bool canReshare,
+    bool viewOnce = false,
     DateTime? expiresAt,
   }) async {
     _isSaving = true;
@@ -123,6 +129,7 @@ class ShareViewModel extends ChangeNotifier {
         canView: canView,
         canDownload: canDownload,
         canReshare: canReshare,
+        viewOnce: viewOnce,
         expiresAt: expiresAt,
       );
 

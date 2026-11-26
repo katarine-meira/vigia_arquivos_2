@@ -19,7 +19,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   bool _obscurePass = true;
   bool _obscureConfirm = true;
-  bool _termsAccepted = false;
 
   @override
   void dispose() {
@@ -32,16 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_termsAccepted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aceite os termos para continuar.'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
     final vm = context.read<AuthViewModel>();
     final success = await vm.signUp(
       _nameCtrl.text,
@@ -158,47 +147,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (v) =>
                       v != _passCtrl.text ? 'As senhas não coincidem' : null,
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Checkbox(
-                      value: _termsAccepted,
-                      onChanged: (v) =>
-                          setState(() => _termsAccepted = v ?? false),
-                      activeColor: AppTheme.primary,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: RichText(
-                        text: const TextSpan(
-                          style: TextStyle(
-                              fontSize: 13, color: AppTheme.textSecondary),
-                          children: [
-                            TextSpan(text: 'Li e concordo com os '),
-                            TextSpan(
-                              text: 'Termos de Uso',
-                              style: TextStyle(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            TextSpan(text: ' e o '),
-                            TextSpan(
-                              text: 'Aviso de Privacidade',
-                              style: TextStyle(
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            TextSpan(text: '.'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
                 const SizedBox(height: 28),
                 Consumer<AuthViewModel>(

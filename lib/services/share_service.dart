@@ -16,6 +16,7 @@ class ShareService {
     required bool canView,
     required bool canDownload,
     required bool canReshare,
+    bool viewOnce = false,
     DateTime? expiresAt,
   }) async {
     final created = <ShareModel>[];
@@ -34,9 +35,11 @@ class ShareService {
           'canView': canView,
           'canDownload': canDownload,
           'canReshare': canReshare,
+          'viewOnce': viewOnce,
         },
         'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt) : null,
         'isRevoked': false,
+        'hasOpened': false,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -111,6 +114,16 @@ class ShareService {
       await _sharesCollection.doc(shareId).update({
         'isViewed': true,
         'viewedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
+  }
+
+  /// Marca que o documento de visualização única foi aberto
+  Future<void> markViewOnceConsumed(String shareId) async {
+    try {
+      await _sharesCollection.doc(shareId).update({
+        'hasOpened': true,
+        'openedAt': FieldValue.serverTimestamp(),
       });
     } catch (_) {}
   }
