@@ -54,7 +54,6 @@ class _ShareScreenState extends State<ShareScreen> {
 
     final myEmail = context.read<AuthViewModel>().user?.email.toLowerCase() ?? '';
 
-    // Permite adicionar múltiplos separados por vírgula, ponto-e-vírgula ou espaço
     final emails = rawText.split(RegExp(r'[,;\s]+')).where((e) => e.isNotEmpty).toList();
 
     for (final email in emails) {
@@ -89,7 +88,6 @@ class _ShareScreenState extends State<ShareScreen> {
   }
 
   Future<void> _submit() async {
-    // Se o usuário digitou no campo mas esqueceu de clicar no "+", adiciona automaticamente
     if (_emailCtrl.text.trim().isNotEmpty) {
       _addEmail();
     }
@@ -211,7 +209,7 @@ class _ShareScreenState extends State<ShareScreen> {
               if (shareVm.error != null)
                 ErrorBanner(message: shareVm.error!),
 
-              // 1. Seleção do arquivo
+              // Seleção do arquivo
               const FieldLabel('Arquivo selecionado'),
               const SizedBox(height: 8),
               if (_selectedFile != null)
@@ -258,7 +256,7 @@ class _ShareScreenState extends State<ShareScreen> {
 
               const SizedBox(height: 24),
 
-              // 2. Destinatários múltiplos
+              // Destinatários
               const FieldLabel('Destinatário(s) cadastrado(s)'),
               const SizedBox(height: 8),
               Row(
@@ -288,7 +286,6 @@ class _ShareScreenState extends State<ShareScreen> {
                 ],
               ),
 
-              // Lista de chips dos e-mails adicionados
               if (_recipients.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Wrap(
@@ -309,7 +306,7 @@ class _ShareScreenState extends State<ShareScreen> {
 
               const SizedBox(height: 28),
 
-              // 3. Permissões de Acesso
+              // Permissões de Acesso
               const FieldLabel('Permissões de acesso'),
               const SizedBox(height: 12),
               Container(
@@ -353,7 +350,7 @@ class _ShareScreenState extends State<ShareScreen> {
                 ),
               ),
 
-              // 4. Prazo de validade / Expiração (não exibido em visualização única)
+              // Prazo de validade
               if (!_viewOnce) ...[
                 const SizedBox(height: 28),
                 const FieldLabel('Prazo de validade'),

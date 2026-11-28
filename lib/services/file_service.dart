@@ -9,20 +9,20 @@ import '../models/file_model.dart';
 class FileService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Limite seguro para sincronização de conteúdo na nuvem via Firestore (Spark gratuito)
+  // Limite seguro para sincronização de conteúdo na nuvem, firestore
   static const int _maxCloudSizeBytes = 5 * 1024 * 1024; // 5 MB
-  static const int _chunkSizeChars = 500000; // ~500 KB por documento (< 1 MB limite)
+  static const int _chunkSizeChars = 500000; //
 
   CollectionReference get _filesCollection => _firestore.collection('files');
 
-  /// Abre o seletor nativo de arquivos do celular/dispositivo
+  // Abre o seletor nativo de arquivos do dispositivo
   Future<PlatformFile?> pickFile() async {
     return await FilePicker.pickFile(
       type: FileType.any,
     );
   }
 
-  /// Salva uma cópia no armazenamento local seguro do app e sincroniza o conteúdo em chunks no Firestore
+  // Salva uma cópia no armazenamento local seguro do app e sincroniza o conteúdo em chunks no firestore
   Future<FileModel> uploadFile({
     required PlatformFile file,
     required String ownerId,
@@ -30,7 +30,6 @@ class FileService {
     String savedLocalPath = '';
     Uint8List? fileBytes;
 
-    // Salva o arquivo em diretório seguro do aplicativo
     if (!kIsWeb && file.path != null) {
       final appDir = await getApplicationDocumentsDirectory();
       final userFilesDir = Directory('${appDir.path}/user_files/$ownerId');
@@ -61,7 +60,6 @@ class FileService {
 
     final docRef = await _filesCollection.add(fileData);
 
-    // Sincroniza bytes no Firestore (em chunks de 500 KB) para funcionar entre celulares diferentes
     if (fileBytes != null && fileBytes.length <= _maxCloudSizeBytes) {
       final b64 = base64Encode(fileBytes);
       final totalChunks = (b64.length / _chunkSizeChars).ceil();
@@ -83,13 +81,12 @@ class FileService {
     return FileModel.fromFirestore(docSnapshot);
   }
 
-  /// Resolve o caminho local do arquivo: usa o local se existir, senão baixa e decodifica do Firestore
+  // usa o local se existir, senão baixa e decodifica do Firestore
   Future<String?> resolveFilePath({
     required String fileId,
     required String fileName,
     required String localPath,
   }) async {
-    // 1. Verifica se já existe no caminho original (mesmo dispositivo)
     if (localPath.isNotEmpty) {
       final origFile = File(localPath);
       if (await origFile.exists()) return localPath;
@@ -97,7 +94,6 @@ class FileService {
 
     if (kIsWeb) return null;
 
-    // 2. Verifica cache local de arquivos recebidos de outros dispositivos
     final appDir = await getApplicationDocumentsDirectory();
     final receivedDir = Directory('${appDir.path}/received_files');
     if (!await receivedDir.exists()) {
@@ -109,7 +105,6 @@ class FileService {
       return cachedFile.path;
     }
 
-    // 3. Baixa chunks do Firestore e reconstrói localmente
     try {
       final chunksSnap = await _filesCollection
           .doc(fileId)
@@ -134,7 +129,6 @@ class FileService {
     }
   }
 
-  /// Retorna Stream contínuo dos arquivos do usuário em tempo real a partir do Firestore
   Stream<List<FileModel>> getUserFilesStream(String userId) {
     return _filesCollection
         .where('ownerId', isEqualTo: userId)
@@ -146,7 +140,7 @@ class FileService {
     });
   }
 
-  /// Remove a cópia local do arquivo e o registro correspondente no Firestore (incluindo chunks)
+  // Remove a cópia local do arquivo e o registro correspondente no Firestore
   Future<void> deleteFile(FileModel file) async {
     if (file.localPath.isNotEmpty) {
       try {

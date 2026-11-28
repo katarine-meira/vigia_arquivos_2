@@ -7,7 +7,6 @@ class ShareService {
 
   CollectionReference get _sharesCollection => _firestore.collection('shares');
 
-  /// Cria compartilhamento para múltiplos destinatários de uma só vez
   Future<List<ShareModel>> createShares({
     required FileModel file,
     required String ownerId,
@@ -51,7 +50,7 @@ class ShareService {
     return created;
   }
 
-  /// Atualiza permissões, validade ou reativa um compartilhamento existente
+  // atualiza permissões, validade ou reativa um compartilhamento existente
   Future<void> updateShare({
     required String shareId,
     required bool canView,
@@ -76,7 +75,7 @@ class ShareService {
     await _sharesCollection.doc(shareId).update(updateData);
   }
 
-  /// Retorna Stream dos compartilhamentos criados por mim (como dono)
+  // Retorna compartilhamentos criados por mim
   Stream<List<ShareModel>> getMySharesStream(String ownerId) {
     return _sharesCollection
         .where('ownerId', isEqualTo: ownerId)
@@ -88,7 +87,7 @@ class ShareService {
     });
   }
 
-  /// Retorna Stream dos arquivos compartilhados COMIGO pelo meu e-mail
+  // Retorna arquivos compartilhados comigo
   Stream<List<ShareModel>> getSharesWithMeStream(String myEmail) {
     final cleanEmail = myEmail.toLowerCase().trim();
     return _sharesCollection
@@ -101,14 +100,14 @@ class ShareService {
     });
   }
 
-  /// Revoga o acesso a um arquivo compartilhado
+  // Revoga o acesso a um arquivo compartilhado
   Future<void> revokeShare(String shareId) async {
     await _sharesCollection.doc(shareId).update({
       'isRevoked': true,
     });
   }
 
-  /// Marca que o destinatário visualizou o compartilhamento
+  // Marca que o destinatário visualizou o compartilhamento
   Future<void> markShareAsViewed(String shareId) async {
     try {
       await _sharesCollection.doc(shareId).update({
@@ -118,7 +117,7 @@ class ShareService {
     } catch (_) {}
   }
 
-  /// Marca que o documento de visualização única foi aberto
+  // Marca que o documento de visualização única foi aberto
   Future<void> markViewOnceConsumed(String shareId) async {
     try {
       await _sharesCollection.doc(shareId).update({
@@ -128,7 +127,7 @@ class ShareService {
     } catch (_) {}
   }
 
-  /// Exclui o registro de compartilhamento
+  // Exclui o registro de compartilhamento
   Future<void> deleteShare(String shareId) async {
     await _sharesCollection.doc(shareId).delete();
   }

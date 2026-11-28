@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 
-/// Logo do Vigia Arquivos com ícone de documento limpo e direto.
+/// Logo Vigia Arquivos
 class AppLogo extends StatelessWidget {
   final double size;
   const AppLogo({super.key, this.size = 40});

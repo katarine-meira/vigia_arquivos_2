@@ -27,24 +27,24 @@ class ShareViewModel extends ChangeNotifier {
   bool get isSaving => _isSaving;
   String? get error => _error;
 
-  /// Quantidade de acessos que estão atualmente ativos e válidos
+  // Quantidade de acessos que estão atualmente ativos e válidos
   int get activeSharesCount => _myShares.where((s) => s.isActive).length;
 
-  /// Quantidade de arquivos compartilhados comigo que ainda não foram visualizados
+  // Quantidade de arquivos compartilhados comigo que ainda não foram visualizados
   int get unviewedReceivedCount =>
       _sharedWithMe.where((s) => !s.isViewed && s.isActive).length;
 
-  /// Marca compartilhamento como visualizado
+  // Marca compartilhamento como visualizado
   Future<void> markShareAsViewed(String shareId) async {
     await _shareService.markShareAsViewed(shareId);
   }
 
-  /// Marca que um documento de visualização única foi aberto
+  // Marca que um documento de visualização única foi aberto
   Future<void> markViewOnceConsumed(String shareId) async {
     await _shareService.markViewOnceConsumed(shareId);
   }
 
-  /// Compartilhamentos que expiram nas próximas 48 horas
+  // Compartilhamentos que expiram nas próximas 48 horas
   List<ShareModel> get expiringSoonShares => _myShares.where((s) {
         if (!s.isActive || s.expiresAt == null) return false;
         final diff = s.expiresAt!.difference(DateTime.now());
@@ -53,7 +53,6 @@ class ShareViewModel extends ChangeNotifier {
 
   String? _currentUserId;
 
-  /// Inicializa a escuta dos dois fluxos em tempo real
   void init({required String userId, required String userEmail}) {
     if (userId.isEmpty) return;
     if (_currentUserId == userId && _mySharesSub != null && _sharedWithMeSub != null) {
@@ -94,7 +93,6 @@ class ShareViewModel extends ChangeNotifier {
     );
   }
 
-  /// Cria compartilhamento para múltiplos destinatários, validando se existem no sistema
   Future<bool> createShares({
     required FileModel file,
     required String ownerId,
@@ -111,7 +109,6 @@ class ShareViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Validação de existência prévia no sistema
       final missing = await _authService.findMissingEmails(recipientEmails);
       if (missing.isNotEmpty) {
         _isSaving = false;
@@ -120,7 +117,6 @@ class ShareViewModel extends ChangeNotifier {
         return false;
       }
 
-      // 2. Criação dos compartilhamentos
       final shares = await _shareService.createShares(
         file: file,
         ownerId: ownerId,
@@ -133,7 +129,6 @@ class ShareViewModel extends ChangeNotifier {
         expiresAt: expiresAt,
       );
 
-      // 3. Auditoria e-ARQ Brasil / LGPD
       for (final s in shares) {
         _auditService.logEvent(
           fileId: file.id,
@@ -159,7 +154,6 @@ class ShareViewModel extends ChangeNotifier {
     }
   }
 
-  /// Atualiza permissões e prazo de um compartilhamento existente
   Future<bool> updateShare({
     required String shareId,
     required bool canView,
@@ -206,7 +200,7 @@ class ShareViewModel extends ChangeNotifier {
     }
   }
 
-  /// Revoga o acesso a qualquer momento
+  // Revoga o acesso a qualquer momento
   Future<bool> revokeShare(String shareId) async {
     try {
       await _shareService.revokeShare(shareId);

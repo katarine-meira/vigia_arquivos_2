@@ -9,7 +9,6 @@ class UserModel {
     required this.displayName,
   });
 
-  /// Returns up to 2 uppercase initials from the display name.
   String get initials {
     final parts = displayName.trim().split(' ');
     if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
@@ -19,6 +18,5 @@ class UserModel {
     return '?';
   }
 
-  /// Returns only the first name.
   String get firstName => displayName.split(' ').first;
 }

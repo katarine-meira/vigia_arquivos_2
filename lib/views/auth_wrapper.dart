@@ -4,8 +4,7 @@ import '../viewmodels/auth_viewmodel.dart';
 import 'home/home_screen.dart';
 import 'splash/splash_screen.dart';
 
-/// Decide qual tela exibir com base no estado de autenticação.
-/// Quando o Firebase Auth muda (login/logout), esta widget reconstrói automaticamente.
+// Decide qual tela exibir com base no estado de autenticação.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 

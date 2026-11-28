@@ -30,11 +30,9 @@ class AuditService {
         'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (_) {
-      // Falha silenciosa para não quebrar a navegação principal
     }
   }
 
-  /// Retorna stream dos registros de auditoria filtrados conforme a regra de custódia
   Stream<List<AuditLogModel>> getAuditLogsStream({String? userEmail, String? userId}) {
     final cleanEmail = userEmail?.toLowerCase().trim() ?? '';
     final uid = userId ?? '';
@@ -48,11 +46,9 @@ class AuditService {
       if (uid.isEmpty && cleanEmail.isEmpty) return all;
 
       return all.where((log) {
-        // Se a ação for VIEW ou DOWNLOAD, aparece APENAS para o proprietário do documento
         if (log.action == 'VIEW' || log.action == 'DOWNLOAD') {
           return log.ownerId == uid || (cleanEmail.isNotEmpty && log.ownerEmail == cleanEmail);
         }
-        // Para ações de UPLOAD, SHARE, REVOKE, EDIT_PERMISSIONS: aparece para o proprietário/autor
         return log.ownerId == uid ||
             log.actorId == uid ||
             (cleanEmail.isNotEmpty && (log.ownerEmail == cleanEmail || log.actorEmail == cleanEmail));

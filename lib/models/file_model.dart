@@ -41,7 +41,6 @@ class FileModel {
         'uploadedAt': Timestamp.fromDate(uploadedAt),
       };
 
-  /// Retorna a extensão do arquivo em maiúsculas (ex: PDF, DOCX, PNG)
   String get extension {
     final dotIndex = fileName.lastIndexOf('.');
     if (dotIndex != -1 && dotIndex < fileName.length - 1) {
@@ -50,7 +49,6 @@ class FileModel {
     return 'ARQ';
   }
 
-  /// Formata o tamanho legível em B, KB ou MB
   String get formattedSize {
     if (fileSize < 1024) return '$fileSize B';
     if (fileSize < 1024 * 1024) {

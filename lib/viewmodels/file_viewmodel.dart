@@ -25,7 +25,7 @@ class FileViewModel extends ChangeNotifier {
 
   String? _currentUserId;
 
-  /// Inicia a escuta em tempo real dos arquivos do usuário
+  // escuta em tempo real dos arquivos do usuário
   void init(String userId) {
     if (userId.isEmpty) return;
     if (_currentUserId == userId && _filesSub != null) return;
@@ -52,7 +52,7 @@ class FileViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Abre o seletor para o usuário escolher um arquivo
+  // Abre o seletor para o usuário escolher um arquivo
   Future<void> pickFile() async {
     try {
       final file = await _service.pickFile();
@@ -81,7 +81,7 @@ class FileViewModel extends ChangeNotifier {
     }
   }
 
-  /// Faz o upload do arquivo selecionado
+  // Faz o upload do arquivo selecionado
   Future<bool> uploadSelectedFile(String userId, {String userEmail = ''}) async {
     if (_selectedFile == null) return false;
     final uploaded = await _performUpload(_selectedFile!, userId, userEmail);
@@ -93,7 +93,7 @@ class FileViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// Seleciona um arquivo do dispositivo sem fazer upload imediato
+  // Seleciona um arquivo do dispositivo sem fazer upload imediato
   Future<PlatformFile?> pickLocalFile() async {
     try {
       return await _service.pickFile();
@@ -105,7 +105,6 @@ class FileViewModel extends ChangeNotifier {
     }
   }
 
-  /// Faz upload de um PlatformFile específico e retorna o FileModel criado
   Future<FileModel?> uploadPlatformFile(
     PlatformFile file,
     String userId, {
@@ -140,7 +139,7 @@ class FileViewModel extends ChangeNotifier {
     }
   }
 
-  /// Exclui um arquivo
+  // Exclui um arquivo
   Future<bool> deleteFile(FileModel file) async {
     try {
       await _service.deleteFile(file);

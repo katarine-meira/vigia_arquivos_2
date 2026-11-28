@@ -2,14 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 
-/// Encapsula as chamadas de autenticação e registro de perfil no Firestore.
+/// Encapsula as chamadas de autenticação e registro de perfil no Firestore
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   CollectionReference get _usersCollection => _firestore.collection('users');
 
-  /// Stream que emite o usuário Firebase a cada mudança de estado de autenticação.
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<UserModel> signIn({
@@ -48,7 +47,7 @@ class AuthService {
 
     final user = _auth.currentUser!;
 
-    // Salva perfil no Firestore para busca e validação de destinatários
+    // Salva perfil no firestore para busca e validação de destinatários
     await _usersCollection.doc(user.uid).set({
       'uid': user.uid,
       'email': cleanEmail,
@@ -60,11 +59,11 @@ class AuthService {
     return _toModel(user);
   }
 
-  /// Verifica se um e-mail existe no sistema com fallback inteligente
+  // Verifica se um e-mail existe no sistema
   Future<bool> userExists(String email) async {
     final cleanEmail = email.toLowerCase().trim();
 
-    // 1. Consulta coleção de usuários no Firestore
+    // Consulta coleção de usuários no Firestore
     try {
       final snapshot = await _usersCollection
           .where('email', isEqualTo: cleanEmail)
@@ -73,12 +72,10 @@ class AuthService {
       if (snapshot.docs.isNotEmpty) return true;
     } catch (_) {}
 
-    // 2. Validação de formato para permitir contas criadas diretamente no Firebase Console
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     return emailRegex.hasMatch(cleanEmail);
   }
 
-  /// Retorna lista de e-mails que NÃO foram encontrados no sistema
   Future<List<String>> findMissingEmails(List<String> emails) async {
     final missing = <String>[];
     for (final email in emails) {

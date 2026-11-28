@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 
-/// Avatar circular com iniciais do usuário.
+// Avatar
 class UserAvatar extends StatelessWidget {
   final String initials;
   final double radius;

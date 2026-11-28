@@ -12,7 +12,7 @@ class ActivitiesTab extends StatefulWidget {
 }
 
 class _ActivitiesTabState extends State<ActivitiesTab> {
-  int _viewMode = 0; // 0 = Por documento enviado, 1 = Linha do tempo geral
+  int _viewMode = 0;
 
   Color _actionColor(String action) {
     switch (action) {
@@ -114,9 +114,7 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
     );
   }
 
-  /// Visualização 1: Atividades agrupadas por documento enviado
   Widget _buildGroupedByDocumentView(List<AuditLogModel> logs) {
-    // Agrupa todos os logs por nome do arquivo
     final Map<String, List<AuditLogModel>> grouped = {};
     for (final log in logs) {
       final key = log.fileName.trim().isNotEmpty ? log.fileName.trim() : 'Documento';
@@ -288,7 +286,6 @@ class _ActivitiesTabState extends State<ActivitiesTab> {
     );
   }
 
-  /// Visualização 2: Linha do tempo contínua geral
   Widget _buildFlatTimelineView(List<AuditLogModel> logs) {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

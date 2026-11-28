@@ -103,10 +103,6 @@ class OnboardingScreen extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Modelos e sub-widgets privados
-// ---------------------------------------------------------------------------
-
 class _Feature {
   final IconData icon;
   final String title;

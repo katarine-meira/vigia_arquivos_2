@@ -101,7 +101,7 @@ class ShareModel {
   /// Retorna se o acesso está atualmente válido e ativo
   bool get isActive => !isRevoked && !isExpired && !isViewOnceConsumed;
 
-  /// Retorna a descrição amigável do status do compartilhamento
+  /// Retorna o status do compartilhamento
   String get statusDescription {
     if (isRevoked) return 'Revogado';
     if (isExpired) return 'Expirado';

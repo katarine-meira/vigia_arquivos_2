@@ -6,14 +6,12 @@ import '../services/auth_service.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated }
 
-/// ViewModel de autenticação.
-/// Expõe estado reativo para Login, Cadastro e Logout.
+// estado reativo para Login, Cadastro e Logout.
 class AuthViewModel extends ChangeNotifier {
   final AuthService _service;
   StreamSubscription<User?>? _authSub;
 
   AuthViewModel(this._service) {
-    // Escuta mudanças de estado do Firebase e atualiza a UI automaticamente.
     _authSub = _service.authStateChanges.listen(_onAuthChanged);
   }
 

@@ -82,7 +82,6 @@ class _SharesTabState extends State<SharesTab> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Conteúdo da aba selecionada
               Expanded(
                 child: _tabIndex == 0
                     ? _ReceivedList(
@@ -218,13 +217,12 @@ class _ReceivedList extends StatelessWidget {
     }
 
     final shareVm = context.read<ShareViewModel>();
-    // Marca como visualizado para não mostrar mais o aviso de novos arquivos na Home
     shareVm.markShareAsViewed(share.id);
     if (share.viewOnce) {
       shareVm.markViewOnceConsumed(share.id);
     }
 
-    // Abre visualizador protegido DENTRO DO APP com transição suave sem artefatos
+    // Abre visualizador protegido
     Navigator.push(
       context,
       CupertinoPageRoute(
@@ -262,7 +260,7 @@ class _ReceivedList extends StatelessWidget {
   }
 }
 
-// Lista de Compartilhamentos Enviados (Gerenciamento do Dono)
+// Lista de Enviados
 
 class _SentList extends StatelessWidget {
   final List<ShareModel> shares;
@@ -324,7 +322,7 @@ class _SentList extends StatelessWidget {
   }
 }
 
-// Modal de Edição de Compartilhamento (Bottom Sheet)
+// Modal de Edição de Compartilhamento
 
 class _EditShareSheet extends StatefulWidget {
   final ShareModel share;

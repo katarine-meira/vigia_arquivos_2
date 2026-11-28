@@ -39,7 +39,6 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
     _resolveDocument();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        // Registra evento de visualização que aparecerá APENAS para o proprietário do documento
         context.read<AuditViewModel>().log(
               fileId: widget.share.fileId,
               fileName: widget.share.fileName,
@@ -109,7 +108,7 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
 
       final bytes = await File(_resolvedPath!).readAsBytes();
 
-      // Abre o seletor nativo do Android/iOS para salvar o arquivo na pasta Downloads ou escolhida pelo usuário
+      // Abre o seletor nativo do Android
       final savedPath = await FilePicker.saveFile(
         dialogTitle: 'Salvar documento',
         fileName: widget.share.fileName,
@@ -117,12 +116,10 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
       );
 
       if (savedPath == null) {
-        // Usuário cancelou o diálogo de salvamento
         return;
       }
 
       if (context.mounted) {
-        // Notifica o proprietário que uma cópia física foi baixada
         context.read<AuditViewModel>().log(
               fileId: widget.share.fileId,
               fileName: widget.share.fileName,
@@ -184,7 +181,7 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
     final fileExists = _resolvedPath != null && File(_resolvedPath!).existsSync();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B132B), // Fundo escuro focado para leitura
+      backgroundColor: const Color(0xFF0B132B),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
@@ -228,7 +225,6 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Conteúdo do documento visualizado dentro do próprio app
           Center(
             child: _isResolving
                 ? const Column(
@@ -300,7 +296,7 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
                                 : _buildGenericDocumentView(),
           ),
 
-          // Marca d'água dinâmica e translúcida (visível tanto em PDF branco quanto em fundo escuro)
+          // Marca d'água
           IgnorePointer(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -337,7 +333,6 @@ class _ProtectedViewerScreenState extends State<ProtectedViewerScreen> {
             ),
           ),
 
-          // Tarja inferior de status e permissões
           Positioned(
             left: 16,
             right: 16,

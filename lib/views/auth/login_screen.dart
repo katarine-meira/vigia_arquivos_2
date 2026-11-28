@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final vm = context.read<AuthViewModel>();
     final success = await vm.signIn(_emailCtrl.text, _passCtrl.text);
     if (success && mounted) {
-      // Remove toda a pilha de navegação; AuthWrapper exibirá HomeScreen.
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }

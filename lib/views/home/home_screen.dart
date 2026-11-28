@@ -140,10 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Tab: Início
-// ---------------------------------------------------------------------------
-
 class _HomeTab extends StatelessWidget {
   final bool isBannerDismissed;
   final VoidCallback onDismissBanner;
@@ -204,7 +201,7 @@ class _HomeTab extends StatelessWidget {
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
         ),
 
-        // Aviso em destaque: só aparece se houver documentos NÃO visualizados!
+        // Aviso em destaque que só aparece se houver documentos não visualizados
         if (shareVm.unviewedReceivedCount > 0 && !isBannerDismissed) ...[
           const SizedBox(height: 20),
           _ReceivedNotificationBanner(
@@ -274,10 +271,7 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Banner de Notificação de Arquivos Recebidos
-// ---------------------------------------------------------------------------
-
 class _ReceivedNotificationBanner extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
@@ -334,10 +328,7 @@ class _ReceivedNotificationBanner extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Card "Expira em breve"
-// ---------------------------------------------------------------------------
-
 class _ExpiringSoonCard extends StatelessWidget {
   final ShareModel share;
   final VoidCallback? onTap;
@@ -408,10 +399,7 @@ class _ExpiringSoonCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Tab: Placeholder (Atividades)
-// ---------------------------------------------------------------------------
-
+// Tab: Atividades
 class _PlaceholderTab extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -443,10 +431,6 @@ class _PlaceholderTab extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Sub-widgets do HomeTab
-// ---------------------------------------------------------------------------
 
 class _ActionCard extends StatelessWidget {
   final VoidCallback onTap;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Rótulo padrão para campos de formulário de autenticação.
+// Rótulo padrão para campos de formulário de autenticação.
 class FieldLabel extends StatelessWidget {
   final String text;
   const FieldLabel(this.text, {super.key});
@@ -17,7 +17,7 @@ class FieldLabel extends StatelessWidget {
       );
 }
 
-/// Banner de feedback visual para exibição de erros retornados pela autenticação.
+// Banner de feedback visual para exibição de erros
 class ErrorBanner extends StatelessWidget {
   final String message;
   const ErrorBanner({super.key, required this.message});
@@ -55,7 +55,7 @@ class ErrorBanner extends StatelessWidget {
   }
 }
 
-/// Botão de alternância para mostrar/ocultar senha no input.
+// Botão de alternância para mostrar/ocultar senha no input
 class VisibilityToggle extends StatelessWidget {
   final bool obscure;
   final VoidCallback onToggle;
@@ -79,7 +79,7 @@ class VisibilityToggle extends StatelessWidget {
   }
 }
 
-/// Indicador de carregamento compacto para botões.
+// Indicador de carregamento
 class ButtonLoader extends StatelessWidget {
   const ButtonLoader({super.key});
 
